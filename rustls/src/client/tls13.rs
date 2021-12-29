@@ -927,7 +927,8 @@ impl State<ClientConnectionData> for ExpectFinished {
             .record_layer
             .set_message_encrypter(st.suite.derive_encrypter(&client_key));
 
-        cx.common.start_traffic();
+        cx.common.start_outgoing_traffic();
+        cx.common.start_incoming_traffic();
 
         let st = ExpectTraffic {
             config: st.config,
