@@ -5,7 +5,7 @@ use crate::keylog::KeyLog;
 use crate::kx::SupportedKxGroup;
 #[cfg(feature = "logging")]
 use crate::log::trace;
-use crate::msgs::base::PayloadU8;
+use crate::msgs::base::{Payload, PayloadU8};
 #[cfg(feature = "quic")]
 use crate::msgs::enums::AlertDescription;
 use crate::msgs::enums::ProtocolVersion;
@@ -14,6 +14,7 @@ use crate::msgs::handshake::{ClientHelloPayload, ServerExtension};
 use crate::msgs::message::Message;
 use crate::sign;
 use crate::suites::SupportedCipherSuite;
+use crate::vecbuf::ChunkVecBuffer;
 use crate::verify;
 #[cfg(feature = "quic")]
 use crate::{conn::Protocol, quic};
@@ -221,9 +222,17 @@ pub struct ServerConfig {
     /// does nothing.
     pub key_log: Arc<dyn KeyLog>,
 
-    /// Amount of early data to accept; 0 to disable.
-    #[cfg(feature = "quic")] // TLS support unimplemented
-    #[doc(hidden)]
+    /// Amount of early data to accept for sessions created by
+    /// this config.  Specify 0 to disable early data.  The
+    /// default is 0.
+    ///
+    /// Read the early data via [`ServerConnection::early_data`].
+    ///
+    /// The units for this are _both_ plaintext bytes, _and_ ciphertext
+    /// bytes, depending on whether the server accepts a client's early_data
+    /// or not.  It is recommended therefore to include some slop in
+    /// this value to account for the unknown amount of ciphertext
+    /// expansion in the latter case.
     pub max_early_data_size: u32,
 }
 
@@ -248,6 +257,39 @@ impl ServerConfig {
                 .cipher_suites
                 .iter()
                 .any(|cs| cs.version().version == v)
+    }
+}
+
+/// A structure which allows reading of early data (also known as
+/// "0-RTT Data") in resumed TLS1.3 connections.
+///
+/// This structure implements [`std::io::Read`].
+pub struct ReadEarlyData<'a> {
+    conn: &'a mut ServerConnection,
+}
+
+impl<'a> ReadEarlyData<'a> {
+    fn new(conn: &'a mut ServerConnection) -> Self {
+        ReadEarlyData { conn }
+    }
+}
+
+impl<'a> std::io::Read for ReadEarlyData<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.conn
+            .inner
+            .data
+            .early_data
+            .read(buf)
+    }
+
+    #[cfg(feature = "read_buf")]
+    fn read_buf(&mut self, buf: &mut io::ReadBuf<'_>) -> io::Result<()> {
+        self.conn
+            .inner
+            .data
+            .early_data
+            .read_buf(buf)
     }
 }
 
@@ -336,7 +378,30 @@ impl ServerConnection {
             self.is_handshaking(),
             "cannot retroactively reject early data"
         );
-        self.inner.data.reject_early_data = true;
+        self.inner.data.early_data.reject();
+    }
+
+    /// Returns an `io::Read` implementer you can read bytes from that are
+    /// received from a client as TLS1.3 0RTT/"early" data, during the handshake.
+    ///
+    /// This returns `None` in many circumstances, such as :
+    ///
+    /// - Early data is disabled by the [`ServerConfig::max_early_data_size`] is zero (the default).
+    /// - The session negotiated with the client is not TLS1.3.
+    /// - The client just doesn't support early data.
+    /// - The connection doesn't resume an existing session.
+    /// - The client hasn't sent a full ClientHello yet.
+    pub fn early_data(&mut self) -> Option<ReadEarlyData> {
+        if self
+            .inner
+            .data
+            .early_data
+            .was_accepted()
+        {
+            Some(ReadEarlyData::new(self))
+        } else {
+            None
+        }
     }
 }
 
@@ -525,16 +590,74 @@ impl State<ServerConnectionData> for Accepting {
     }
 }
 
+pub(super) enum EarlyDataState {
+    New,
+    Accepted(ChunkVecBuffer),
+    Rejected,
+}
+
+impl Default for EarlyDataState {
+    fn default() -> Self {
+        Self::New
+    }
+}
+
+impl EarlyDataState {
+    pub(super) fn reject(&mut self) {
+        *self = Self::Rejected;
+    }
+
+    pub(super) fn accept(&mut self, max_size: usize) {
+        *self = Self::Accepted(ChunkVecBuffer::new(Some(max_size)));
+    }
+
+    fn was_accepted(&self) -> bool {
+        matches!(self, Self::Accepted(_))
+    }
+
+    pub(super) fn was_rejected(&self) -> bool {
+        matches!(self, Self::Rejected)
+    }
+
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if let Self::Accepted(ref mut received) = self {
+            received.read(buf)
+        } else {
+            Err(io::Error::from(io::ErrorKind::BrokenPipe))
+        }
+    }
+
+    #[cfg(feature = "read_buf")]
+    fn read_buf(&mut self, buf: &mut io::ReadBuf<'_>) -> io::Result<()> {
+        if let Self::Accepted(ref mut received) = self {
+            received.read_buf(buf)
+        } else {
+            Err(io::Error::from(io::ErrorKind::BrokenPipe))
+        }
+    }
+
+    pub(super) fn take_received_plaintext(&mut self, bytes: Payload) -> bool {
+        if let Self::Accepted(ref mut received) = self {
+            if received.apply_limit(bytes.0.len()) == bytes.0.len() {
+                received.append(bytes.0);
+                true
+            } else {
+                // out of space
+                false
+            }
+        } else {
+            false
+        }
+    }
+}
+
 /// State associated with a server connection.
 #[derive(Default)]
 pub struct ServerConnectionData {
     pub(super) sni: Option<webpki::DnsName>,
     pub(super) received_resumption_data: Option<Vec<u8>>,
     pub(super) resumption_data: Vec<u8>,
-
-    #[allow(dead_code)] // only supported for QUIC currently
-    /// Whether to reject early data even if it would otherwise be accepted
-    pub(super) reject_early_data: bool,
+    pub(super) early_data: EarlyDataState,
 }
 
 impl ServerConnectionData {

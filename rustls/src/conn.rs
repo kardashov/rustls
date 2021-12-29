@@ -578,21 +578,44 @@ impl<Data> ConnectionCommon<Data> {
             }
         }
 
+        let message_len = msg.payload.0.len();
+
         // Decrypt if demanded by current state.
         let msg = match self
             .common_state
             .record_layer
             .is_decrypting()
         {
-            true => self
-                .common_state
-                .decrypt_incoming(msg)?,
+            true => match self.common_state.decrypt_incoming(msg) {
+                Ok(msg) => msg,
+                Err(Error::DecryptError) => {
+                    if self
+                        .common_state
+                        .record_layer
+                        .doing_trial_decryption(message_len)
+                    {
+                        trace!("Dropping undecryptable message after aborted early_data");
+                        return Ok(state);
+                    } else {
+                        self.send_fatal_alert(AlertDescription::BadRecordMac);
+                        return Err(Error::DecryptError);
+                    }
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            },
             false => msg.into_plain_message(),
         };
 
         // For handshake messages, we need to join them before parsing
         // and processing.
         if self.handshake_joiner.want_message(&msg) {
+            // First decryptable handshake message concludes trial decryption
+            self.common_state
+                .record_layer
+                .finish_trial_decryption();
+
             self.handshake_joiner
                 .take_message(msg)
                 .ok_or_else(|| {
