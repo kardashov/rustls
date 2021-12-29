@@ -12,8 +12,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use rustls::client::ResolvesClientCert;
-use rustls::internal::msgs::codec::{Codec, Reader};
-use rustls::internal::msgs::persist::Tls13ClientSessionValue;
 #[cfg(feature = "quic")]
 use rustls::quic::{self, ClientQuicExt, QuicExt, ServerQuicExt};
 use rustls::server::{ClientHello, ResolvesServerCert};
@@ -2628,11 +2626,25 @@ fn key_log_for_tls13() {
     assert_eq!("SERVER_TRAFFIC_SECRET_0", client_resume_log[3].label);
     assert_eq!("EXPORTER_SECRET", client_resume_log[4].label);
 
-    assert_eq!(client_resume_log[0], server_resume_log[0]);
-    assert_eq!(client_resume_log[1], server_resume_log[1]);
-    assert_eq!(client_resume_log[2], server_resume_log[2]);
-    assert_eq!(client_resume_log[3], server_resume_log[3]);
-    assert_eq!(client_resume_log[4], server_resume_log[4]);
+    assert_eq!(6, server_resume_log.len());
+    assert_eq!("CLIENT_EARLY_TRAFFIC_SECRET", server_resume_log[0].label);
+    assert_eq!(
+        "CLIENT_HANDSHAKE_TRAFFIC_SECRET",
+        server_resume_log[1].label
+    );
+    assert_eq!(
+        "SERVER_HANDSHAKE_TRAFFIC_SECRET",
+        server_resume_log[2].label
+    );
+    assert_eq!("CLIENT_TRAFFIC_SECRET_0", server_resume_log[3].label);
+    assert_eq!("SERVER_TRAFFIC_SECRET_0", server_resume_log[4].label);
+    assert_eq!("EXPORTER_SECRET", server_resume_log[5].label);
+
+    assert_eq!(client_resume_log[0], server_resume_log[1]);
+    assert_eq!(client_resume_log[1], server_resume_log[2]);
+    assert_eq!(client_resume_log[2], server_resume_log[3]);
+    assert_eq!(client_resume_log[3], server_resume_log[4]);
+    assert_eq!(client_resume_log[4], server_resume_log[5]);
 }
 
 #[test]
@@ -3077,41 +3089,12 @@ fn early_data_is_available_on_resumption() {
 
     let client_config = Arc::new(client_config);
 
-    let server_config = Arc::new(make_server_config(kt));
+    let mut server_config = make_server_config(kt);
+    server_config.max_early_data_size = 1234;
+    let server_config = Arc::new(server_config);
+
     let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &server_config);
     do_handshake(&mut client, &mut server);
-
-    /* discover the session data in the storage, and edit it to fool the
-     * client on resumption that the server supports 0rtt. */
-    let session_key = storage
-        .last_put_key
-        .lock()
-        .unwrap()
-        .clone()
-        .unwrap();
-
-    let session_value_bytes = storage
-        .storage
-        .get(&session_key)
-        .unwrap();
-
-    let cs = CipherSuite::read_bytes(&session_value_bytes[..2]).unwrap();
-    let suite = match ALL_CIPHER_SUITES
-        .iter()
-        .find(|supported| supported.suite() == cs)
-        .unwrap()
-    {
-        #[cfg(feature = "tls12")]
-        SupportedCipherSuite::Tls12(_) => unreachable!(),
-        SupportedCipherSuite::Tls13(inner) => inner,
-    };
-    let mut reader = Reader::init(&session_value_bytes[2..]);
-    let mut session_value = Tls13ClientSessionValue::read(suite, &mut reader).unwrap();
-    session_value.set_max_early_data_size(128);
-
-    storage
-        .storage
-        .put(session_key, session_value.get_encoding());
 
     let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &server_config);
     assert!(client.early_data().is_some());
@@ -3120,7 +3103,7 @@ fn early_data_is_available_on_resumption() {
             .early_data()
             .unwrap()
             .bytes_left(),
-        128
+        1234
     );
     client
         .early_data()
@@ -3135,8 +3118,18 @@ fn early_data_is_available_on_resumption() {
             .unwrap(),
         5
     );
-    let err = do_handshake_until_error(&mut client, &mut server);
-    assert_eq!(err, Err(ErrorFromPeer::Server(Error::DecryptError)));
+    do_handshake(&mut client, &mut server);
+
+    let mut received_early_data = vec![];
+    assert_eq!(
+        server
+            .early_data()
+            .expect("early_data didn't happen")
+            .read_to_end(&mut received_early_data)
+            .expect("early_data failed unexpectedly"),
+        5
+    );
+    assert_eq!(received_early_data, b"hello");
 }
 
 #[cfg(feature = "quic")]
