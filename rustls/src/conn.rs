@@ -567,12 +567,12 @@ impl<Data> ConnectionCommon<Data> {
                 .may_receive_application_data
             && self.common_state.is_tls13()
         {
-            if self.common_state.received_middlebox_ccs {
+            if self.common_state.received_middlebox_ccs > 2 {
                 return Err(Error::PeerMisbehavedError(
                     "illegal middlebox CCS received".into(),
                 ));
             } else {
-                self.common_state.received_middlebox_ccs = true;
+                self.common_state.received_middlebox_ccs += 1;
                 trace!("Dropping CCS");
                 return Ok(state);
             }
@@ -792,7 +792,7 @@ pub struct CommonState {
     /// If the peer has signaled end of stream.
     has_received_close_notify: bool,
     has_seen_eof: bool,
-    received_middlebox_ccs: bool,
+    received_middlebox_ccs: usize,
     pub(crate) peer_certificates: Option<Vec<key::Certificate>>,
     message_fragmenter: MessageFragmenter,
     received_plaintext: ChunkVecBuffer,
@@ -820,7 +820,7 @@ impl CommonState {
             sent_fatal_alert: false,
             has_received_close_notify: false,
             has_seen_eof: false,
-            received_middlebox_ccs: false,
+            received_middlebox_ccs: 0,
             peer_certificates: None,
             message_fragmenter: MessageFragmenter::new(max_fragment_size)
                 .map_err(|_| Error::BadMaxFragmentSize)?,
