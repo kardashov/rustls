@@ -3078,20 +3078,20 @@ fn early_data_not_available() {
     assert!(client.early_data().is_none());
 }
 
-#[test]
-fn early_data_is_available_on_resumption() {
+fn early_data_configs() -> (Arc<ClientConfig>, Arc<ServerConfig>) {
     let kt = KeyType::Rsa;
     let mut client_config = make_client_config(kt);
     client_config.enable_early_data = true;
-
-    let storage = Arc::new(ClientStorage::new());
-    client_config.session_storage = storage.clone();
-
-    let client_config = Arc::new(client_config);
+    client_config.session_storage = Arc::new(ClientStorage::new());
 
     let mut server_config = make_server_config(kt);
     server_config.max_early_data_size = 1234;
-    let server_config = Arc::new(server_config);
+    (Arc::new(client_config), Arc::new(server_config))
+}
+
+#[test]
+fn early_data_is_available_on_resumption() {
+    let (client_config, server_config) = early_data_configs();
 
     let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &server_config);
     do_handshake(&mut client, &mut server);
@@ -3120,16 +3120,57 @@ fn early_data_is_available_on_resumption() {
     );
     do_handshake(&mut client, &mut server);
 
-    let mut received_early_data = vec![];
+    let mut received_early_data = [0u8; 5];
     assert_eq!(
         server
             .early_data()
             .expect("early_data didn't happen")
-            .read_to_end(&mut received_early_data)
+            .read(&mut received_early_data)
             .expect("early_data failed unexpectedly"),
         5
     );
-    assert_eq!(received_early_data, b"hello");
+    assert_eq!(&received_early_data[..], b"hello");
+}
+
+#[test]
+fn early_data_not_available_on_server_before_client_hello() {
+    let mut server = ServerConnection::new(Arc::new(make_server_config(KeyType::Rsa))).unwrap();
+    assert!(server.early_data().is_none());
+}
+
+#[test]
+fn early_data_can_be_rejected_by_server() {
+    let (client_config, server_config) = early_data_configs();
+
+    let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &server_config);
+    do_handshake(&mut client, &mut server);
+
+    let (mut client, mut server) = make_pair_for_arc_configs(&client_config, &server_config);
+    assert!(client.early_data().is_some());
+    assert_eq!(
+        client
+            .early_data()
+            .unwrap()
+            .bytes_left(),
+        1234
+    );
+    client
+        .early_data()
+        .unwrap()
+        .flush()
+        .unwrap();
+    assert_eq!(
+        client
+            .early_data()
+            .unwrap()
+            .write(b"hello")
+            .unwrap(),
+        5
+    );
+    server.reject_early_data();
+    do_handshake(&mut client, &mut server);
+
+    assert_eq!(client.is_early_data_accepted(), false);
 }
 
 #[cfg(feature = "quic")]
