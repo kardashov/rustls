@@ -633,9 +633,6 @@ impl EarlyDataState {
             Self::Accepted(ref mut received) if received.apply_limit(available) == available => {
                 received.append(bytes.0);
                 true
-            } else {
-                // out of space
-                false
             }
         } else {
             false
