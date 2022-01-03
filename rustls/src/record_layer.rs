@@ -53,9 +53,12 @@ impl RecordLayer {
     }
 
     pub(crate) fn doing_trial_decryption(&mut self, requested: usize) -> bool {
-        match self.trial_decryption_len {
-            Some(ref mut remaining) if requested <= *remaining => {
-                *remaining = *remaining - requested;
+        match self
+            .trial_decryption_len
+            .and_then(|value| value.checked_sub(requested))
+        {
+            Some(remaining) => {
+                self.trial_decryption_len = Some(remaining);
                 true
             }
             _ => false,
