@@ -381,7 +381,7 @@ mod client_hello {
                         );
                     cx.data.early_data.reject();
                 }
-                EarlyData::RequestedButRejected => {
+                EarlyDataDecision::RequestedButRejected => {
                     debug!("Client requested early_data, but not accepted: switching to handshake keys with trial decryption");
                     cx.common
                         .record_layer
