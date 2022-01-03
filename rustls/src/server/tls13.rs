@@ -529,7 +529,7 @@ mod client_hello {
             .record_layer
             .set_message_encrypter(suite.derive_encrypter(&server_key));
 
-        if let Some(edck) = &early_data_client_key {
+        if let Some(key) = &early_data_client_key {
             cx.common
                 .record_layer
                 .set_message_decrypter(suite.derive_decrypter(edck));
