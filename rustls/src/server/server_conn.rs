@@ -266,7 +266,7 @@ impl ServerConfig {
 ///
 /// This structure implements [`std::io::Read`].
 pub struct ReadEarlyData<'a> {
-    conn: &'a mut ServerConnection,
+    early_data: &'a mut EarlyDataState,
 }
 
 impl<'a> ReadEarlyData<'a> {
