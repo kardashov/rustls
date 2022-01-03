@@ -282,11 +282,7 @@ impl<'a> std::io::Read for ReadEarlyData<'a> {
 
     #[cfg(feature = "read_buf")]
     fn read_buf(&mut self, buf: &mut io::ReadBuf<'_>) -> io::Result<()> {
-        self.conn
-            .inner
-            .data
-            .early_data
-            .read_buf(buf)
+        self.early_data.read_buf(buf)
     }
 }
 
