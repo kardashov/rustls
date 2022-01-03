@@ -660,7 +660,7 @@ mod client_hello {
         resumedata: Option<&persist::ServerSessionValue>,
         extra_exts: Vec<ServerExtension>,
         config: &ServerConfig,
-    ) -> Result<EarlyData, Error> {
+    ) -> Result<EarlyDataDecision, Error> {
         let mut ep = hs::ExtensionProcessing::new();
         ep.process_common(
             config,
