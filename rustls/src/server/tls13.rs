@@ -877,7 +877,7 @@ impl State<ServerConnectionData> for ExpectAndSkipRejectedEarlyData {
         /* "The server then ignores early data by skipping all records with an external
          *  content type of "application_data" (indicating that they are encrypted),
          *  up to the configured max_early_data_size."
-         * (RFC8442, 14.2.10) */
+         * (RFC8446, 14.2.10) */
         if let MessagePayload::ApplicationData(ref skip_data) = m.payload {
             if skip_data.0.len() <= self.skip_data_left {
                 self.skip_data_left -= skip_data.0.len();
