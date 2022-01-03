@@ -613,10 +613,9 @@ impl EarlyDataState {
     }
 
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if let Self::Accepted(ref mut received) = self {
-            received.read(buf)
-        } else {
-            Err(io::Error::from(io::ErrorKind::BrokenPipe))
+        match self {
+            Self::Accepted(ref mut received) => received.read(buf),
+            _ => Err(io::Error::from(io::ErrorKind::BrokenPipe)),
         }
     }
 
