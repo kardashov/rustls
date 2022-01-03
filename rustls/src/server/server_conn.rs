@@ -230,7 +230,7 @@ pub struct ServerConfig {
     ///
     /// The units for this are _both_ plaintext bytes, _and_ ciphertext
     /// bytes, depending on whether the server accepts a client's early_data
-    /// or not.  It is recommended therefore to include some slop in
+    /// or not.  It is therefore recommended to include some slop in
     /// this value to account for the unknown amount of ciphertext
     /// expansion in the latter case.
     pub max_early_data_size: u32,
