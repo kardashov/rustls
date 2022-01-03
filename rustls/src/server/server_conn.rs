@@ -391,7 +391,7 @@ impl ServerConnection {
             .early_data
             .was_accepted()
         {
-            Some(ReadEarlyData::new(self))
+            Some(ReadEarlyData::new(&mut self.inner.data.early_data))
         } else {
             None
         }
