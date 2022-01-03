@@ -596,7 +596,9 @@ mod client_hello {
         cx: &mut ServerContext<'_>,
         client_hello: &ClientHelloPayload,
         resumedata: Option<&persist::ServerSessionValue>,
-    ) -> EarlyData {
+        suite: &'static Tls13CipherSuite,
+        config: &ServerConfig,
+    ) -> EarlyDataDecision {
         let early_data_requested = client_hello.early_data_extension_offered();
         let rejected_or_disabled = if early_data_requested {
             EarlyData::RequestedButRejected
