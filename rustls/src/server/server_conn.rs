@@ -628,8 +628,9 @@ impl EarlyDataState {
     }
 
     pub(super) fn take_received_plaintext(&mut self, bytes: Payload) -> bool {
-        if let Self::Accepted(ref mut received) = self {
-            if received.apply_limit(bytes.0.len()) == bytes.0.len() {
+        let available = bytes.0.len();
+        match self {
+            Self::Accepted(ref mut received) if received.apply_limit(available) == available => {
                 received.append(bytes.0);
                 true
             } else {
