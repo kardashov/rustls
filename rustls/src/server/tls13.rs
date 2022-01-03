@@ -605,47 +605,49 @@ mod client_hello {
             false => EarlyDataDecision::Disabled,
         };
 
-        if let Some(resume) = resumedata {
-            /* Non-zero max_early_data_size controls whether early_data is allowed at all.
-             * We also require stateful resumption. */
-            let early_data_configured =
-                config.max_early_data_size > 0 && !config.ticketer.enabled();
-
-            /* "For PSKs provisioned via NewSessionTicket, a server MUST validate
-             *  that the ticket age for the selected PSK identity (computed by
-             *  subtracting ticket_age_add from PskIdentity.obfuscated_ticket_age
-             *  modulo 2^32) is within a small tolerance of the time since the ticket
-             *  was issued (see Section 8)." -- this is implemented in ServerSessionValue::set_freshness()
-             *  and related.
-             *
-             * "In order to accept early data, the server [...] MUST verify that the
-             *  following values are the same as those associated with the
-             *  selected PSK:
-             *
-             *  - The TLS version number
-             *  - The selected cipher suite
-             *  - The selected ALPN [RFC7301] protocol, if any"
-             *
-             * (RFC8446, 4.2.10) */
-            let early_data_possible = early_data_requested
-                && resume.is_fresh()
-                && Some(resume.version) == cx.common.negotiated_version
-                && resume.cipher_suite == suite.common.suite
-                && resume.alpn.as_ref().map(|x| &x.0) == cx.common.alpn_protocol.as_ref();
-
-            if early_data_configured && early_data_possible && !cx.data.early_data.was_rejected() {
-                EarlyDataDecision::Accepted
-            } else {
-                #[cfg(feature = "quic")]
-                if cx.common.is_quic() {
-                    // Clobber value set in tls13::emit_server_hello
-                    cx.common.quic.early_secret = None;
-                }
-
-                rejected_or_disabled
+        let resume = match resumedata {
+            Some(resume) => resume,
+            None => {
+                // never any early data if not resuming.
+                return rejected_or_disabled;
             }
+        };
+
+        /* Non-zero max_early_data_size controls whether early_data is allowed at all.
+         * We also require stateful resumption. */
+        let early_data_configured = config.max_early_data_size > 0 && !config.ticketer.enabled();
+
+        /* "For PSKs provisioned via NewSessionTicket, a server MUST validate
+         *  that the ticket age for the selected PSK identity (computed by
+         *  subtracting ticket_age_add from PskIdentity.obfuscated_ticket_age
+         *  modulo 2^32) is within a small tolerance of the time since the ticket
+         *  was issued (see Section 8)." -- this is implemented in ServerSessionValue::set_freshness()
+         *  and related.
+         *
+         * "In order to accept early data, the server [...] MUST verify that the
+         *  following values are the same as those associated with the
+         *  selected PSK:
+         *
+         *  - The TLS version number
+         *  - The selected cipher suite
+         *  - The selected ALPN [RFC7301] protocol, if any"
+         *
+         * (RFC8446, 4.2.10) */
+        let early_data_possible = early_data_requested
+            && resume.is_fresh()
+            && Some(resume.version) == cx.common.negotiated_version
+            && resume.cipher_suite == suite.common.suite
+            && resume.alpn.as_ref().map(|x| &x.0) == cx.common.alpn_protocol.as_ref();
+
+        if early_data_configured && early_data_possible && !cx.data.early_data.was_rejected() {
+            EarlyDataDecision::Accepted
         } else {
-            // no early_data unless resuming
+            #[cfg(feature = "quic")]
+            if cx.common.is_quic() {
+                // Clobber value set in tls13::emit_server_hello
+                cx.common.quic.early_secret = None;
+            }
+
             rejected_or_disabled
         }
     }
