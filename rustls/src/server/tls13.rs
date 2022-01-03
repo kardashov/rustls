@@ -595,7 +595,6 @@ mod client_hello {
     fn decide_if_early_data_allowed(
         cx: &mut ServerContext<'_>,
         client_hello: &ClientHelloPayload,
-        suite: &'static Tls13CipherSuite,
         resumedata: Option<&persist::ServerSessionValue>,
     ) -> EarlyData {
         let early_data_requested = client_hello.early_data_extension_offered();
