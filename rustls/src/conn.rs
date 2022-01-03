@@ -368,6 +368,11 @@ pub(crate) struct ConnectionRandoms {
 #[cfg(feature = "tls12")]
 static TLS12_DOWNGRADE_SENTINEL: [u8; 8] = [0x44, 0x4f, 0x57, 0x4e, 0x47, 0x52, 0x44, 0x01];
 
+/// How many ChangeCipherSpec messages we accept and drop in TLS1.3 handshakes.
+/// The spec says 1, but implementations (namely the boringssl test suite) get
+/// this wrong.  BoringSSL itself accepts up to 32.
+static TLS13_MAX_DROPPED_CCS: u8 = 2u8;
+
 impl ConnectionRandoms {
     pub(crate) fn new(client: Random, server: Random, we_are_client: bool) -> Self {
         Self {
