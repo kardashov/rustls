@@ -634,8 +634,7 @@ impl EarlyDataState {
                 received.append(bytes.0);
                 true
             }
-        } else {
-            false
+            _ => false,
         }
     }
 }
