@@ -532,7 +532,7 @@ mod client_hello {
         if let Some(key) = &early_data_client_key {
             cx.common
                 .record_layer
-                .set_message_decrypter(suite.derive_decrypter(edck));
+                .set_message_decrypter(suite.derive_decrypter(key));
         }
 
         #[cfg(feature = "quic")]
