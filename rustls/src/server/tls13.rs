@@ -392,7 +392,7 @@ mod client_hello {
                         );
                     cx.data.early_data.reject();
                 }
-                EarlyData::Accepted => {
+                EarlyDataDecision::Accepted => {
                     cx.data
                         .early_data
                         .accept(self.config.max_early_data_size as usize);
