@@ -277,11 +277,7 @@ impl<'a> ReadEarlyData<'a> {
 
 impl<'a> std::io::Read for ReadEarlyData<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.conn
-            .inner
-            .data
-            .early_data
-            .read(buf)
+        self.early_data.read(buf)
     }
 
     #[cfg(feature = "read_buf")]
