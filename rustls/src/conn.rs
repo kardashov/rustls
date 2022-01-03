@@ -567,7 +567,7 @@ impl<Data> ConnectionCommon<Data> {
                 .may_receive_application_data
             && self.common_state.is_tls13()
         {
-            if self.common_state.received_middlebox_ccs > 2 {
+            if self.common_state.received_middlebox_ccs > TLS13_MAX_DROPPED_CCS {
                 return Err(Error::PeerMisbehavedError(
                     "illegal middlebox CCS received".into(),
                 ));
