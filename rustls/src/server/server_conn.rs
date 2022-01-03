@@ -270,8 +270,8 @@ pub struct ReadEarlyData<'a> {
 }
 
 impl<'a> ReadEarlyData<'a> {
-    fn new(conn: &'a mut ServerConnection) -> Self {
-        ReadEarlyData { conn }
+    fn new(early_data: &'a mut EarlyDataState) -> Self {
+        ReadEarlyData { early_data }
     }
 }
 
