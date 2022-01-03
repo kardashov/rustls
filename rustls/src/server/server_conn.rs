@@ -260,8 +260,9 @@ impl ServerConfig {
     }
 }
 
-/// A structure which allows reading of early data (also known as
-/// "0-RTT Data") in resumed TLS1.3 connections.
+/// Allows reading of early data in resumed TLS1.3 connections.
+///
+/// "Early data" is also known as "0-RTT data".
 ///
 /// This structure implements [`std::io::Read`].
 pub struct ReadEarlyData<'a> {
