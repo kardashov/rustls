@@ -372,7 +372,7 @@ mod client_hello {
             // If we're not doing early data, then the next messages we receive
             // are encrypted with the handshake keys.
             match doing_early_data {
-                EarlyData::Disabled => {
+                EarlyDataDecision::Disabled => {
                     cx.common
                         .record_layer
                         .set_message_decrypter(
