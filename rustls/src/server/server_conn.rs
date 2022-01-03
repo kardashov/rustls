@@ -379,7 +379,7 @@ impl ServerConnection {
     ///
     /// This returns `None` in many circumstances, such as :
     ///
-    /// - Early data is disabled by the [`ServerConfig::max_early_data_size`] is zero (the default).
+    /// - Early data is disabled if [`ServerConfig::max_early_data_size`] is zero (the default).
     /// - The session negotiated with the client is not TLS1.3.
     /// - The client just doesn't support early data.
     /// - The connection doesn't resume an existing session.
