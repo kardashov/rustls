@@ -672,8 +672,8 @@ mod client_hello {
             extra_exts,
         )?;
 
-        let early_data = decide_if_early_data_allowed(cx, config, hello, suite, resumedata);
-        if early_data == EarlyData::Accepted {
+        let early_data = decide_if_early_data_allowed(cx, hello, resumedata, suite, config);
+        if early_data == EarlyDataDecision::Accepted {
             ep.exts.push(ServerExtension::EarlyData);
         }
 
