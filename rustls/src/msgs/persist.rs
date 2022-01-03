@@ -1,6 +1,5 @@
 use crate::client::ServerName;
 use crate::key;
-use crate::log::debug;
 use crate::msgs::base::{PayloadU16, PayloadU8};
 use crate::msgs::codec::{Codec, Reader};
 use crate::msgs::enums::{CipherSuite, ProtocolVersion};
@@ -530,11 +529,6 @@ impl ServerSessionValue {
         } else {
             client_age_ms - server_age_ms
         };
-
-        debug!(
-            "session age measured as {}ms by client, {}ms by server, diff {}ms",
-            client_age_ms, server_age_ms, age_difference
-        );
 
         self.freshness = Some(age_difference <= MAX_FRESHNESS_SKEW_MS);
         self
