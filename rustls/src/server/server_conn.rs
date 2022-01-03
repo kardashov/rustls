@@ -621,10 +621,9 @@ impl EarlyDataState {
 
     #[cfg(feature = "read_buf")]
     fn read_buf(&mut self, buf: &mut io::ReadBuf<'_>) -> io::Result<()> {
-        if let Self::Accepted(ref mut received) = self {
-            received.read_buf(buf)
-        } else {
-            Err(io::Error::from(io::ErrorKind::BrokenPipe))
+        match self {
+            Self::Accepted(ref mut received) => received.read_buf(buf),
+            _ => Err(io::Error::from(io::ErrorKind::BrokenPipe)),
         }
     }
 
