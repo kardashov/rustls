@@ -634,7 +634,7 @@ mod client_hello {
                 && resume.alpn.as_ref().map(|x| &x.0) == cx.common.alpn_protocol.as_ref();
 
             if early_data_configured && early_data_possible && !cx.data.early_data.was_rejected() {
-                EarlyData::Accepted
+                EarlyDataDecision::Accepted
             } else {
                 #[cfg(feature = "quic")]
                 if cx.common.is_quic() {
