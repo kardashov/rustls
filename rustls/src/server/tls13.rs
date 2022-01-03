@@ -600,10 +600,9 @@ mod client_hello {
         config: &ServerConfig,
     ) -> EarlyDataDecision {
         let early_data_requested = client_hello.early_data_extension_offered();
-        let rejected_or_disabled = if early_data_requested {
-            EarlyData::RequestedButRejected
-        } else {
-            EarlyData::Disabled
+        let rejected_or_disabled = match early_data_requested {
+            true => EarlyDataDecision::RequestedButRejected,
+            false => EarlyDataDecision::Disabled,
         };
 
         if let Some(resume) = resumedata {
