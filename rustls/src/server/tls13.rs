@@ -65,7 +65,7 @@ mod client_hello {
     use super::*;
 
     #[derive(PartialEq)]
-    pub(super) enum EarlyData {
+    pub(super) enum EarlyDataDecision {
         Disabled,
         RequestedButRejected,
         Accepted,
