@@ -815,7 +815,7 @@ pub struct CommonState {
     /// If the peer has signaled end of stream.
     has_received_close_notify: bool,
     has_seen_eof: bool,
-    received_middlebox_ccs: usize,
+    received_middlebox_ccs: u8,
     pub(crate) peer_certificates: Option<Vec<key::Certificate>>,
     message_fragmenter: MessageFragmenter,
     received_plaintext: ChunkVecBuffer,
