@@ -424,7 +424,7 @@ mod client_hello {
                     key_schedule: key_schedule_traffic,
                     send_ticket: self.send_ticket,
                 }))
-            } else if doing_early_data == EarlyData::Accepted {
+            } else if doing_early_data == EarlyDataDecision::Accepted {
                 Ok(Box::new(ExpectEarlyData {
                     config: self.config,
                     transcript: self.transcript,
